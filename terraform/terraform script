@@ -1,0 +1,198 @@
+#update
+#creating vpc using terraform
+provider "aws" {
+  region     = "us-east-1"
+  access_key = "AKIASPRICDWCJ2HJMZEG"
+  secret_key = "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"
+}
+resource "aws_vpc" "main" {
+  cidr_block       = "10.0.0.0/16"
+  instance_tenancy = "default"
+  tags = {
+    Name = "TCS vpc"
+  }
+}
+
+#creating 2nd application subnet
+resource "aws_subnet" "application-subnet-2" {
+  vpc_id                  = "vpc-029cd5aac52d52044"
+  cidr_block              = "10.0.3.0/24"
+  map_public_ip_on_launch = true
+  availability_zone       = "us-east-1b"
+  tags = {
+    Name = "application subnet 2"
+  }
+}
+
+#creating 1st database subnet
+resource "aws_subnet" "private-subnet-1" {
+  vpc_id                  = "vpc-029cd5aac52d52044"
+  cidr_block              = "10.0.4.0/24"
+  map_public_ip_on_launch = true
+  availability_zone       = "us-east-1a"
+  tags = {
+    Name = "database subnet 1"
+  }
+}
+
+#creating 2nd database subnet
+resource "aws_subnet" "private-subnet-2" {
+  vpc_id                  = "vpc-029cd5aac52d52044"
+  cidr_block              = "10.0.5.0/24"
+  map_public_ip_on_launch = true
+  availability_zone       = "us-east-1b"
+  tags = {
+    Name = "database subnet 2"
+  }
+}
+
+#creating internet gateway
+resource "aws_internet_gateway" "IGW" {
+  vpc_id  = "vpc-029cd5aac52d52044"
+  tags = {
+    Name = "IGW"
+  }
+ }
+
+ #creating Route Table
+resource "aws_route_table" "pub-route1" {
+  vpc_id = "vpc-029cd5aac52d52044"
+  route {
+   cidr_block   = "0.0.0.0/0"
+    gateway_id   = "igw-072d0bff2e87db720"
+    }
+    tags = {
+       Name = "pub route 1"
+  }
+}
+
+# creating of route association
+resource "aws_route_table_association" "web1" {
+  subnet_id = "subnet-07956e828e4bf6ca4"
+  route_table_id = "rtb-0d85ffa7539a76130"
+}
+
+# creating of route association
+resource "aws_route_table_association" "web2" {
+  subnet_id = "subnet-0642e520943d706d6"
+  route_table_id = "rtb-0d85ffa7539a76130"
+}
+
+# creating of route association
+resource "aws_route_table_association" "app-sub-1" {
+  subnet_id = "subnet-0607749501986061b"
+  route_table_id = "rtb-0d85ffa7539a76130"
+}
+
+# creating of route association
+resource "aws_route_table_association" "app-sub-2" {
+  subnet_id = "subnet-0e866e06405f428f3"
+  route_table_id = "rtb-0d85ffa7539a76130"
+}
+
+# creating of route association
+resource "aws_route_table_association" "db1" {
+  subnet_id = "subnet-03cac90ea5df6ca91"
+  route_table_id = "rtb-0d85ffa7539a76130"
+}
+
+# creating of route association
+resource "aws_route_table_association" "db2" {
+  subnet_id = "subnet-03255a70f0b28624c"
+  route_table_id = "rtb-0d85ffa7539a76130"
+}
+
+# Creating 1st instance
+resource "aws_instance" "demo" {
+  ami = "ami-0b0dcb5067f052a63"
+  instance_type = "t1.micro"
+  count = "1"
+  key_name = "docker"
+  vpc_security_group_ids = ["sg-0b4ed48f3af0bdf3e"]
+  subnet_id = "subnet-07956e828e4bf6ca4"
+  associate_public_ip_address = true
+tags = {
+    Name = "demo1"
+  }
+}
+
+# Creating 2nd instance
+resource "aws_instance" "demo" {
+  ami = "ami-0b0dcb5067f052a63"
+  instance_type = "t1.micro"
+  count = "1"
+  key_name = "docker"
+  vpc_security_group_ids = ["sg-0b4ed48f3af0bdf3e"]
+  subnet_id = "subnet-07956e828e4bf6ca4"
+  associate_public_ip_address = true
+tags = {
+    Name = "demo2"
+  }
+}
+
+# Creating security Group
+resource "aws_security_group" "demo1" {
+  vpc_id = "vpc-029cd5aac52d52044"
+
+# Inbound Rules
+
+#HTTP access from anywhere
+ingress {
+  from_port = 80
+  to_port = 80
+  protocol = "tcp"
+  cidr_blocks = ["0.0.0.0/0"]
+}
+
+# HTTPS access from anywhere
+ingress {
+  from_port = 443
+  to_port = 443
+  protocol = "tcp"
+  cidr_blocks = ["0.0.0.0/0"]
+}
+
+#SSH access from anywhere
+ingress {
+  from_port = 22
+  to_port = 22
+  protocol = "tcp"
+  cidr_blocks = ["0.0.0.0/0"]
+}
+
+# outbound rules
+
+# internet access to anywhere
+egress {
+  from_port = 0
+  to_port = 0
+  protocol = "-1"
+  cidr_blocks = ["0.0.0.0/0"]
+}
+tags = {
+  Name = "Web SG"
+  }
+}
+
+# Create Database Security Group
+resource "aws_security_group" "database-sg" {
+ name = "Database SG"
+ description = "Allow inbound traffic from application layer"
+ vpc_id = "vpc-029cd5aac52d52044"
+ingress {
+ description = "Allow traffic from application layer"
+ from_port = 3306
+ to_port = 3306
+ protocol = "tcp"
+ security_groups = ["sg-0c004d3354ea03efb"]
+}
+egress {
+ from_port = 32768
+ to_port = 65535
+ protocol = "tcp"
+ cidr_blocks = ["0.0.0.0/0"]
+}
+tags = {
+ Name = "Database SG"
+}
+}
